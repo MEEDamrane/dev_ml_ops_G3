@@ -3,6 +3,8 @@
 Usage, depuis la racine du projet : python -m monprojet.train
 """
 import json
+import sys
+from pathlib import Path
 
 import joblib
 import numpy as np
@@ -10,14 +12,27 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import (accuracy_score, f1_score, mean_absolute_error, mean_squared_error,
-                             precision_score, r2_score, recall_score)
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    mean_absolute_error,
+    mean_squared_error,
+    precision_score,
+    r2_score,
+    recall_score,
+)
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from monprojet import config
-from monprojet.data import load_data, split
-from monprojet.models import candidates
+if __package__:
+    from . import config
+    from .data import load_data, split
+    from .models import candidates
+else:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from monprojet import config
+    from monprojet.data import load_data, split
+    from monprojet.models import candidates
 
 HIGHER_IS_BETTER = {"accuracy": True, "recall": True, "precision": True, "f1": True,
                     "mae": False, "rmse": False, "r2": True}
@@ -56,9 +71,15 @@ def evaluate(model, X_test, y_test) -> dict:
         average = "binary" if pd.Series(y_test).nunique() == 2 else "macro"
         scores = {
             "accuracy": accuracy_score(y_test, predictions),
-            "recall": recall_score(y_test, predictions, average=average, zero_division=0),
-            "precision": precision_score(y_test, predictions, average=average, zero_division=0),
-            "f1": f1_score(y_test, predictions, average=average, zero_division=0),
+            "recall": recall_score(
+                y_test, predictions, average=average, zero_division=0
+            ),
+            "precision": precision_score(
+                y_test, predictions, average=average, zero_division=0
+            ),
+            "f1": f1_score(
+                y_test, predictions, average=average, zero_division=0
+            ),
         }
     elif config.TASK == "regression":
         scores = {
@@ -68,7 +89,8 @@ def evaluate(model, X_test, y_test) -> dict:
         }
     else:
         raise ValueError(
-            f"TASK inconnu : {config.TASK!r}; utilisez 'classification' ou 'regression'."
+            f"TASK inconnu : {config.TASK!r}; "
+            "utilisez 'classification' ou 'regression'."
         )
 
     return {name: round(float(value), 3) for name, value in scores.items()}
@@ -92,6 +114,7 @@ def main() -> None:
     results = {}
     trained_models = {}
     for name, estimator in candidates().items():
+        print(f"Entraînement du modèle : {name}")
         model = Pipeline([
             ("preparation", build_preprocessing(X_train)),
             ("modele", estimator),
@@ -99,6 +122,7 @@ def main() -> None:
         model.fit(X_train, y_train)
         results[name] = evaluate(model, X_test, y_test)
         trained_models[name] = model
+        print(f"Modèle '{name}' entraîné avec succès.")
 
     ascending = not HIGHER_IS_BETTER[config.MAIN_METRIC]
     comparison = pd.DataFrame(results).T.sort_values(

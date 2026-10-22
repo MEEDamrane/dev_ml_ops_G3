@@ -1,4 +1,3 @@
-
 """Chargement et découpage des données.
 
 À vous d'écrire load_data() et split(). Les tests de tests/test_data.py disent ce qui est attendu.
@@ -6,7 +5,7 @@
 from math import ceil
 
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split  # noqa: F401  (utile pour split)
 
 from monprojet import config
 
@@ -21,22 +20,15 @@ def load_data(path=None) -> pd.DataFrame:
 
     Pistes : pd.read_csv, df.columns, df.dropna(subset=[...]).
     """
-    # Choisir le chemin du fichier CSV
     data_path = config.DATA_PATH if path is None else path
-
-    # Lire le fichier CSV
     df = pd.read_csv(data_path)
 
-    # Vérifier que la colonne cible existe
     if config.TARGET not in df.columns:
         raise ValueError(
             f"La colonne cible '{config.TARGET}' n'existe pas dans le fichier CSV."
         )
 
-    # Supprimer les lignes où la cible est manquante
-    df = df.dropna(subset=[config.TARGET]).copy()
-
-    return df
+    return df.dropna(subset=[config.TARGET]).copy()
 
 
 def feature_columns(df: pd.DataFrame) -> list:
@@ -60,36 +52,12 @@ def split(df: pd.DataFrame):
     Pistes : train_test_split(..., test_size=..., random_state=..., stratify=...) ;
     pd.to_datetime(...).argsort() ; X.iloc[...].
     """
-    # Définir les variables d'entrée et la cible
-    features = feature_columns(df)
-    X = df[features]
+    columns = feature_columns(df)
+    X = df[columns]
     y = df[config.TARGET]
 
-    # Découpage aléatoire
     if config.SPLIT == "random":
-
-        # Stratifier les données pour une classification
-        stratify = None
-
-        if config.TASK == "classification" and y.nunique() > 1:
-            counts = y.value_counts()
-
-            n_test = (
-                int(len(df) * config.TEST_SIZE)
-                if isinstance(config.TEST_SIZE, float)
-                else config.TEST_SIZE
-            )
-            n_train = len(df) - n_test
-
-            # La stratification nécessite au moins deux exemples par classe
-            # et suffisamment de lignes dans chaque ensemble
-            if (
-                counts.min() >= 2
-                and n_test >= y.nunique()
-                and n_train >= y.nunique()
-            ):
-                stratify = y
-
+        stratify = y if config.TASK == "classification" else None
         return train_test_split(
             X,
             y,
@@ -98,50 +66,39 @@ def split(df: pd.DataFrame):
             stratify=stratify,
         )
 
-    # Découpage chronologique
-    elif config.SPLIT == "chronologique":
-
-        # Vérifier la colonne de date
-        if (
-            config.TIME_COLUMN is None
-            or config.TIME_COLUMN not in df.columns
-        ):
+    if config.SPLIT == "chronologique":
+        if not config.TIME_COLUMN or config.TIME_COLUMN not in df.columns:
             raise ValueError(
-                "La colonne TIME_COLUMN doit être définie "
-                "et exister dans le DataFrame."
+                "La colonne TIME_COLUMN doit être définie et exister dans le DataFrame."
             )
 
-        # Trier les données de la plus ancienne à la plus récente
-        order = pd.to_datetime(df[config.TIME_COLUMN], errors="raise").argsort(
-            kind="stable"
-        )
+        dates = pd.to_datetime(df[config.TIME_COLUMN], errors="coerce")
+        if dates.isna().any():
+            raise ValueError(
+                f"La colonne '{config.TIME_COLUMN}' contient des dates invalides."
+            )
 
-        # Calculer le nombre de lignes réservées au test
+        ordered_index = dates.sort_values(kind="stable").index
         n_test = (
             ceil(len(df) * config.TEST_SIZE)
             if isinstance(config.TEST_SIZE, float)
             else config.TEST_SIZE
         )
-
         if n_test <= 0 or n_test >= len(df):
             raise ValueError(
-                "TEST_SIZE doit laisser au moins une ligne "
-                "pour l'entraînement et une ligne pour le test."
+                "TEST_SIZE doit laisser au moins une ligne dans chaque ensemble."
             )
 
-        # Les données récentes servent au test
-        train_idx = order[:-n_test]
-        test_idx = order[-n_test:]
-
+        train_index = ordered_index[:-n_test]
+        test_index = ordered_index[-n_test:]
         return (
-            X.iloc[train_idx],
-            X.iloc[test_idx],
-            y.iloc[train_idx],
-            y.iloc[test_idx],
+            X.loc[train_index],
+            X.loc[test_index],
+            y.loc[train_index],
+            y.loc[test_index],
         )
 
-    else:
-        raise ValueError(
-            f"Valeur SPLIT invalide : '{config.SPLIT}'. "
-            "Utilisez 'random' ou 'chronologique'."
-        )
+    raise ValueError(
+        f"Valeur SPLIT invalide : {config.SPLIT!r}; "
+        "utilisez 'random' ou 'chronologique'."
+    )
