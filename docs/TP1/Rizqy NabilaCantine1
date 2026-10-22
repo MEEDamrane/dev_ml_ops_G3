@@ -1,0 +1,88 @@
+**Date :** 22/10/2026  
+**Realisé par : ** Rizqy Nabila Groupe 3
+**Module :** Développement et déploiement d’applications intelligentes — S3
+
+Étude de Conception et Choix du Modèle (MaintAI & CantineAI)
+1. Grille des Sections 1 à 5 de l’étude de conception
+Section 1 : Utilisateur principal
+MaintAI : L’équipe de maintenance de l’usine.   
+
+CantineAI : Le gestionnaire de la cantine du lycée.   
+
+Section 2 : Décision prise avec le système, et sa fréquence
+MaintAI : Choisir chaque matin les machines à inspecter.   
+
+CantineAI : Commander à la cuisine le nombre de repas du lendemain, chaque jour à 10 h.   
+
+Section 2 : Coût d’une erreur (les deux types d'erreur, et pour qui)
+MaintAI :
+Panne manquée : Arrêt d'une ligne de production pendant une journée entière.
+Fausse alerte : Une heure d'inspection inutile.
+(Pour l'équipe de maintenance et l'usine).   
+
+CantineAI :
+Repas en trop : Environ 15 DH de matière première perdue et du gaspillage alimentaire.
+Repas manquant : Un élève sans déjeuner, un sandwich de remplacement acheté en urgence et des plaintes des parents.
+(Pour le gestionnaire et le lycée).   
+
+Section 3 : Approche (règles, ML, DL, LLM ? Pourquoi pas plus simple ?)
+MaintAI : Machine Learning (Classification binaire). Des règles simples sont insuffisantes en raison de la combinatoire complexe et non linéaire des capteurs.
+CantineAI : Machine Learning (Régression sur série temporelle). Une règle simple ne suffit pas pour intégrer dynamiquement l'impact combiné de la météo, des examens, des sorties scolaires et des menus.
+Section 4 : Données (fichier, source, licence, volume, données personnelles ?)
+MaintAI : Fichier data/exemple_pannes.csv, volume de 5 000 relevés de capteurs synthétiques (17,6 % de pannes failure), aucune donnée personnelle.   
+
+CantineAI : Fichier data/cantine_repas.csv, volume de 340 jours d'école de septembre 2024 à juin 2026 (une ligne par jour), aucune donnée personnelle.   
+
+Section 5 : Baseline (la méthode la plus simple, et son principe)
+MaintAI : Prédire systématiquement "pas de panne" (classe majoritaire).
+CantineAI : Reprendre exactement le chiffre des repas servis le même jour de la semaine précédente (repas_semaine_precedente).   
+
+Section 5 : Métrique principale (et pourquoi, en lien avec le coût des erreurs)
+MaintAI : Le Rappel (Recall), car une panne manquée coûte une journée entière de production, rendant le faux négatif extrêmement critique par rapport à une fausse alerte.   
+
+CantineAI : La MAE (Mean Absolute Error), car elle mesure l'écart absolu moyen en nombre de repas et pénalise de manière équivalente et linéaire tant les repas en trop que les repas manquants.
+Section 5 : Critère d’acceptation (métrique, nombre, jeu de données, condition)
+MaintAI : Rappel supérieur ou égal à 85 % mesuré sur le jeu de test de validation, garantissant de détecter la grande majorité des pannes.
+CantineAI : MAE inférieure ou égale à 15 repas mesurée sur le jeu de test chronologique, garantissant de battre significativement la baseline et d'optimiser les coûts.
+2. Traduction de la section 5 en réglages de config.py
+Paramètres pour MaintAI :
+DATA_PATH : "data/exemple_pannes.csv"
+   
+TARGET : "failure"
+   
+TASK : "classification"
+   
+MAIN_METRIC : "recall"
+   
+SPLIT : "train_test_split" (stratifié)
+TIME_COLUMN : None
+   
+Paramètres pour CantineAI :
+DATA_PATH : "data/cantine_repas.csv"
+   
+TARGET : "repas_servis"
+   
+TASK : "regression"
+  
+MAIN_METRIC : "mae"
+SPLIT : "time_series_split" (chronologique)   
+
+TIME_COLUMN : "date"
+   
+3. Questions conceptuelles et réponses
+MaintAI : Un modèle qui ne prédit jamais de panne aurait une accuracy d'environ 82,4 % (puisqu'il y a 17,6 % de pannes). Cette métrique est totalement inadaptée car elle donnerait l'illusion d'un excellent modèle tout en ratant 100 % des pannes réelles, entraînant l'arrêt des lignes de production. Le Rappel doit être privilégié.   
+
+
+CantineAI : Il ne faut pas tirer les jours de test au hasard car il s'agit d'une série temporelle. Mélanger les jours détruirait l'ordre chronologique et provoquerait une fuite de données (data leakage), faussant totalement l'évaluation de la performance réelle du modèle en production.   
+
+4. Rapport de Choix du Modèle (CantineAI)
+Contexte et Objectif : Prédire le nombre de repas journalier pour optimiser les commandes de la cuisine du lycée et minimiser les coûts liés au gaspillage et aux ruptures.   
+
+Données et Découpage : Fichier data/cantine_repas.csv (340 lignes). Découpage chronologique strict via TimeSeriesSplit sur 5 folds pour respecter la chronologie.   
+
+Résultats sur le jeu de test :
+Baseline (repas_semaine_precedente) : ~50.36 repas d'erreur moyenne.   
+
+Random Forest Regressor : ~37.38 repas d'erreur moyenne.
+Décision Finale : Le modèle Random Forest est retenu car il surpasse nettement la baseline en réduisant l'erreur moyenne de prévision de près de 13 repas par jour, validant ainsi le critère d'acceptation.
+Limites : Le jeu de données est synthétique, ce qui peut ne pas refléter l'ensemble des comportements humains imprévisibles du monde réel (absentéisme massif inopiné, grèves, événements exceptionnels).
