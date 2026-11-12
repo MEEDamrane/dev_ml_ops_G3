@@ -212,9 +212,10 @@ C'est pour cette raison que le navigateur applique la politique CORS et vérifie
 ## 8. Le rendu Git
 
 - Lien de la pull request : …
-- Le tag `tp2` existe sur GitHub : oui 
+- Le tag `tp2` existe sur GitHub : oui
+  
 - `git status` avant le commit : le fichier `.env` apparaissait-il ? non
-- Qui a relu la pull request, et quel commentaire a-t-il laissé ? Rania Bikikre
+- Qui a relu la pull request, et quel commentaire a-t-il laissé ? RIZQY NABILA
   …
 
 ## 9. Ce qui reste flou
