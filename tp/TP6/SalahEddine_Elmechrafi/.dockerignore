@@ -1,0 +1,19 @@
+# Ce qui n'entre jamais dans l'image : lourd, local ou secret
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.git/
+dist/
+build/
+*.egg-info/
+tests/
+# Données et modèle : montés depuis le PC au lancement, pas copiés dans l'image
+data/
+models/
+# Secret : la clé API ne doit jamais être figée dans une image
+.env
+# Suivi MLflow et cache DVC : utiles pour entraîner, pas pour servir
+mlflow.db
+mlruns/
+.dvc/
